@@ -34,7 +34,7 @@ pub const NUM_GAINS: usize = 5;
 /// Capacity limits, mirrored in `wmr_simulator/pololu/gain_mlp_exporter.py`.
 pub const MAX_HIDDEN_LAYERS: usize = 2;
 pub const MAX_WIDTH: usize = 32;
-pub const MAX_WEIGHTS: usize = 1600;
+pub const MAX_WEIGHTS: usize = 512;
 const MAX_SIZES: usize = MAX_HIDDEN_LAYERS + 2;
 
 /// Reference setpoint at the current tick (pose, path speed and turn rate).
