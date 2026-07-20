@@ -325,6 +325,39 @@ pub fn init_sd_logger(
         { MAX_VOLUMES },
     >(dir, scratch);
 
+    // ================= Read gain-MLP parametrization (optional, GAINMLP.JSN) =================
+    match crate::trajectory_reading::file_len_with_dir::<
+        Sd<'static>,
+        Clock,
+        { MAX_DIRS },
+        { MAX_FILES },
+        { MAX_VOLUMES },
+    >(dir, "GAINMLP.JSN")
+    {
+        Ok(len) if (len as usize) <= scratch.len() => {
+            match crate::trajectory_reading::sd_read_file_into_8_3_with_dir::<
+                Sd<'static>,
+                Clock,
+                { MAX_DIRS },
+                { MAX_FILES },
+                { MAX_VOLUMES },
+            >(dir, "GAINMLP.JSN", &mut scratch[..])
+            {
+                Ok(n) => match gain_mlp::GainMlp::from_json(&scratch[..n]) {
+                    Ok(mlp) => {
+                        defmt::info!("Gain MLP loaded ({} bytes); gains are scheduled by the MLP", n);
+                        let mlp_ref = crate::gain_mlp_store::store_gain_mlp(mlp);
+                        crate::gain_mlp_store::register_gain_mlp(mlp_ref);
+                    }
+                    Err(e) => defmt::warn!("Gain MLP parse failed: {}, static gains", e),
+                },
+                Err(e) => defmt::warn!("Gain MLP read failed: {}, static gains", e),
+            }
+        }
+        Ok(len) => defmt::warn!("Gain MLP too large ({} bytes), static gains", len),
+        Err(_) => defmt::info!("No GAINMLP.JSN found, static gains"),
+    }
+
     // SD logging file is opened dynamically when starting trajectory/mode.
     info!("SD logger initialized.");
 

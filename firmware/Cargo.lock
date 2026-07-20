@@ -728,6 +728,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "gain_mlp"
+version = "0.1.0"
+dependencies = [
+ "heapless 0.8.0",
+ "libm",
+ "serde",
+ "serde-json-core",
+]
+
+[[package]]
 name = "generic-array"
 version = "0.14.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1127,6 +1137,7 @@ dependencies = [
  "embedded-sdmmc",
  "embedded-storage",
  "fixed",
+ "gain_mlp",
  "heapless 0.8.0",
  "libm",
  "log",

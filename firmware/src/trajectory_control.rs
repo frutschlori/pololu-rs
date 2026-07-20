@@ -38,6 +38,10 @@ async fn run_unified_loop(
     let init = robotstate::read_ekf_state().await;
     let mut ekf = crate::ekf::Ekf::default_at(init.x, init.y, init.yaw);
 
+    // Optional MLP gain parametrization (GAINMLP.JSN); None -> static gains.
+    let gain_mlp_ref = crate::gain_mlp_store::gain_mlp().await;
+    crate::gain_mlp_store::reset_inner_gain_scales();
+
     let mut ticker = Ticker::every(Duration::from_millis(
         (robot_cfg.traj_following_dt_s * 1000.0) as u64,
     ));
@@ -61,6 +65,7 @@ async fn run_unified_loop(
                     });
                     defmt::info!("Trajectory stopped by command");
                     robotstate::set_sd_logging_active(false);
+                    crate::gain_mlp_store::reset_inner_gain_scales();
                     return TrajectoryResult::Stopped;
                 }
             }
@@ -71,6 +76,7 @@ async fn run_unified_loop(
                     omega_l: 0.0, omega_r: 0.0, stamp: Instant::now(),
                 });
                 robotstate::set_sd_logging_active(false);
+                crate::gain_mlp_store::reset_inner_gain_scales();
                 let pause_start = Instant::now();
                 defmt::info!("Execute loop paused");
                 match select(TRAJ_RESUME_SIG.wait(), TRAJECTORY_CONTROL_EVENT.wait()).await {
@@ -84,6 +90,7 @@ async fn run_unified_loop(
                             omega_l: 0.0, omega_r: 0.0, stamp: Instant::now(),
                         });
                         robotstate::set_sd_logging_active(false);
+                        crate::gain_mlp_store::reset_inner_gain_scales();
                         return TrajectoryResult::Stopped;
                     }
                 }
@@ -97,6 +104,7 @@ async fn run_unified_loop(
             });
             defmt::info!("Trajectory stopped via STOP_ALL");
             robotstate::set_sd_logging_active(false);
+            crate::gain_mlp_store::reset_inner_gain_scales();
             break;
         }
 
@@ -133,6 +141,29 @@ async fn run_unified_loop(
         }).await;
 
         // ---- 3. Control ----
+        // MLP gain parametrization: bounded multiplicative factors on the
+        // controller gains from (setpoint, EKF pose, encoder twist); the inner
+        // motor-gain factors are published for the wheel-speed inner loop.
+        if let Some(mlp) = gain_mlp_ref {
+            let mlp_setpoint = gain_mlp::RefSetpoint {
+                x: setpoint.des.x,
+                y: setpoint.des.y,
+                theta: setpoint.des.theta.rad(),
+                v: setpoint.vdes,
+                omega: setpoint.wdes,
+            };
+            let factors = mlp.factors(&mlp_setpoint, &[fx, fy, fth], &[odom.v, odom.w]);
+            controller.kx = robot_cfg.kx_traj * factors[0];
+            controller.ky = robot_cfg.ky_traj * factors[1];
+            controller.kth = robot_cfg.ktheta_traj * factors[2];
+            crate::gain_mlp_store::set_inner_gain_scales(factors[3], factors[4]);
+            if (t.as_millis() as u32) % 500 < 50 {
+                defmt::info!(
+                    "Gain MLP factors: kx={} ky={} kth={} kp={} ki={}",
+                    factors[0], factors[1], factors[2], factors[3], factors[4]
+                );
+            }
+        }
         robot.s.x = fx;
         robot.s.y = fy;
         robot.s.theta = SO2::new(fth);
@@ -156,6 +187,7 @@ async fn run_unified_loop(
                 let _ = WHEEL_CMD_CH.try_send(WheelCmd { omega_l: 0.0, omega_r: 0.0, stamp: Instant::now() });
                 defmt::info!("Trajectory complete after {}s", t_sec);
                 robotstate::set_sd_logging_active(false);
+                crate::gain_mlp_store::reset_inner_gain_scales();
                 return TrajectoryResult::Completed; 
             }
         }

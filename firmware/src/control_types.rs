@@ -115,7 +115,9 @@ impl DiffdriveControllerCascade {
 
         // Compute the control inputs using feedback linearization
         let v: f32 = setpoint.vdes * cosf(therror) + self.kx * xerror;
-        let w: f32 = setpoint.wdes + setpoint.vdes * (self.ky * yerror + sinf(therror) * self.kth);
+        let w: f32 = setpoint.wdes
+            + setpoint.vdes * (self.ky * yerror + sinf(therror) * self.kth)
+            + self.kth * therror;
 
         // Convert to wheel speeds
         let ur = (2.0 * v + 1.0 * robot.l * w) / (2.0 * robot.r);
@@ -138,7 +140,9 @@ impl DiffdriveControllerCascade {
         let therror: f32 = SO2::error(setpoint.des.theta, robot.s.theta);
 
         let v: f32 = setpoint.vdes * cosf(therror) + self.kx * xerror;
-        let w: f32 = setpoint.wdes + setpoint.vdes * (self.ky * yerror + sinf(therror) * self.kth);
+        let w: f32 = setpoint.wdes
+            + setpoint.vdes * (self.ky * yerror + sinf(therror) * self.kth)
+            + self.kth * therror;
 
         let solver = self.qp_solver.as_mut().unwrap();
         let a: [_; 2] = [robot.r / robot.l, -robot.r / robot.l];

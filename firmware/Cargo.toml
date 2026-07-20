@@ -60,6 +60,7 @@ serde-json-core = "0.5"
 libm = "0.2"
 
 micro_qp = { path = "./libs/micro_qp" }
+gain_mlp = { path = "./libs/gain_mlp" }
 fixed = "1.29.0"
 
 [profile.release]

@@ -270,7 +270,9 @@ impl DiffdriveController {
 
         // Compute the control inputs using feedback linearization
         let v: f32 = setpoint.vdes * cosf(therror) + self.kx * xerror;
-        let w: f32 = setpoint.wdes + setpoint.vdes * (self.ky * yerror + sinf(therror) * self.kth);
+        let w: f32 = setpoint.wdes
+            + setpoint.vdes * (self.ky * yerror + sinf(therror) * self.kth)
+            + self.kth * therror;
 
         // Convert to wheel speeds
         let ur = (2.0 * v + robot.l * w) / (2.0 * robot.r);

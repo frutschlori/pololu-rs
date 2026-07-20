@@ -46,6 +46,7 @@ pub mod control_types;
 // pub mod diffdrive; //legacy
 pub mod ekf;
 pub mod encoder;
+pub mod gain_mlp_store;
 pub mod encoder_lib;
 pub mod goto;
 pub mod inner_controller;

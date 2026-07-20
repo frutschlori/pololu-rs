@@ -130,13 +130,18 @@ pub async fn wheel_speed_inner_loop(
             omega_r_lp = omega_r_raw;
         }
 
+        // Gain-MLP scale factors from the outer loop (1.0 when no MLP is loaded)
+        let (kp_scale, ki_scale) = crate::gain_mlp_store::inner_gain_scales();
+        let kp_t = kp * kp_scale;
+        let ki_t = ki * ki_scale;
+
         // error
         let el = last_cmd.omega_l - omega_l_lp;
         let er = last_cmd.omega_r - omega_r_lp;
 
         // error integration
-        il = (il + ki * dt * el).clamp(-0.8, 0.8);
-        ir = (ir + ki * dt * er).clamp(-0.8, 0.8);
+        il = (il + ki_t * dt * el).clamp(-0.8, 0.8);
+        ir = (ir + ki_t * dt * er).clamp(-0.8, 0.8);
 
         // error differentiation
         let dl = (el - prev_el) / dt;
@@ -145,9 +150,15 @@ pub async fn wheel_speed_inner_loop(
         prev_el = el;
         prev_er = er;
 
+        // Wheel-speed feedforward (matches the sim: duty = (wheel_ref + PI(error)) / motor_gain,
+        // motor_gain = max wheel speed = robot_cfg.wheel_max). kp_inner/ki_inner are exported
+        // already divided by motor_gain, so only the feedforward term needs the division here.
+        let ff_l = last_cmd.omega_l / robot_cfg.wheel_max;
+        let ff_r = last_cmd.omega_r / robot_cfg.wheel_max;
+
         // PID (normally the D term is disabled, but just in case)
-        let u_l = (kp * el + il + kd * dl).clamp(-1.0, 1.0);
-        let u_r = (kp * er + ir + kd * dr).clamp(-1.0, 1.0);
+        let u_l = (ff_l + kp_t * el + il + kd * dl).clamp(-1.0, 1.0);
+        let u_r = (ff_r + kp_t * er + ir + kd * dr).clamp(-1.0, 1.0);
 
         let duty_l = u_l * robot_cfg.motor_direction_left;
         let duty_r = u_r * robot_cfg.motor_direction_right;
