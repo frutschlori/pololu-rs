@@ -151,14 +151,14 @@ pub async fn wheel_speed_inner_loop(
         prev_er = er;
 
         // Wheel-speed feedforward
-        // let ff_l = last_cmd.omega_l / robot_cfg.wheel_max;
-        // let ff_r = last_cmd.omega_r / robot_cfg.wheel_max;
+        let ff_l = last_cmd.omega_l / robot_cfg.wheel_max;
+        let ff_r = last_cmd.omega_r / robot_cfg.wheel_max;
 
         // PID (normally the D term is disabled, but just in case)
-        // let u_l = (ff_l + kp_t * el + il + kd * dl).clamp(-1.0, 1.0);
-        // let u_r = (ff_r + kp_t * er + ir + kd * dr).clamp(-1.0, 1.0);
-        let u_l = (kp_t * el + il + kd * dl).clamp(-1.0, 1.0);
-        let u_r = (kp_t * er + ir + kd * dr).clamp(-1.0, 1.0);
+        let u_l = (ff_l + kp_t * el + il + kd * dl).clamp(-1.0, 1.0);
+        let u_r = (ff_r + kp_t * er + ir + kd * dr).clamp(-1.0, 1.0);
+        // let u_l = (kp_t * el + il + kd * dl).clamp(-1.0, 1.0);
+        // let u_r = (kp_t * er + ir + kd * dr).clamp(-1.0, 1.0);
 
         let duty_l = u_l * robot_cfg.motor_direction_left;
         let duty_r = u_r * robot_cfg.motor_direction_right;
