@@ -31,6 +31,7 @@ pub async fn wheel_speed_inner_loop(
 
     // =========== Filter Parameters ==============
     let dt: f32 = period_ms as f32 / 1000.0;
+    let min_sample_dt: f32 = dt * 0.5;
     let fc_hz: f32 = 3.0; // -> tau = 53 ms, quite heavy smoothing
     let tau: f32 = 1.0 / (2.0 * core::f32::consts::PI * fc_hz);
     let alpha: f32 = dt / (tau + dt);
@@ -94,6 +95,13 @@ pub async fn wheel_speed_inner_loop(
             let elapsed_s = (sample_now - last_sample).as_micros() as f32 / 1_000_000.0;
             if elapsed_s > 0.0 { elapsed_s } else { dt }
         };
+        if dt_sample < min_sample_dt {
+            // Ticker::every catches up after stalls by yielding missed ticks quickly.
+            // Skip these tiny intervals so a single encoder count is not divided by
+            // an unrealistically small dt; keep prev counts for the next real sample.
+            embassy_futures::yield_now().await;
+            continue;
+        }
 
         // raw angular velocity of the wheel
         let ((omega_l_raw, omega_r_raw), (ln, rn)) = wheel_speed_from_counts_now(
@@ -104,9 +112,10 @@ pub async fn wheel_speed_inner_loop(
             prev_r,
             dt_sample,
         ).await;
+        let measurement_stamp = Instant::now();
         prev_l = ln;
         prev_r = rn;
-        last_sample = Instant::now();
+        last_sample = measurement_stamp;
 
         // =========== Low Pass Filter ==============
         if USE_ENCODER_LP_FILTER {
@@ -132,9 +141,15 @@ pub async fn wheel_speed_inner_loop(
         prev_el = el;
         prev_er = er;
 
+        // Wheel-speed feedforward
+        let ff_l = last_cmd.omega_l / robot_cfg.wheel_max;
+        let ff_r = last_cmd.omega_r / robot_cfg.wheel_max;
+
         // PID (normally the D term is disabled, but just in case)
-        let u_l = (kp * el + il + kd * dl).clamp(-1.0, 1.0);
-        let u_r = (kp * er + ir + kd * dr).clamp(-1.0, 1.0);
+        let u_l = (ff_l + kp * el + il + kd * dl).clamp(-1.0, 1.0);
+        let u_r = (ff_r + kp * er + ir + kd * dr).clamp(-1.0, 1.0);
+        // let u_l = (kp * el + il + kd * dl).clamp(-1.0, 1.0);
+        // let u_r = (kp * er + ir + kd * dr).clamp(-1.0, 1.0);
 
         let duty_l = u_l * robot_cfg.motor_direction_left;
         let duty_r = u_r * robot_cfg.motor_direction_right;

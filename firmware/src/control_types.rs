@@ -199,8 +199,9 @@ impl DiffdriveControllerCascade {
         let ydd_d =  setpoint.vdes * theta_d.cos() * setpoint.wdes;
     
         // 3 TODO custom gains
-        let u1: f32 = xdd_d + 10.0*(x_d - robot.s.x) + 5.0*(xd_d - xd);
-        let u2: f32 = ydd_d + 12.0*(y_d - robot.s.y) + 7.0*(yd_d - yd);
+        // motor: kp = 0.007, ki = 0
+        let u1: f32 = xdd_d + 11.04*(x_d - robot.s.x) + 11.64*(xd_d - xd);
+        let u2: f32 = ydd_d + 12.61*(y_d - robot.s.y) + 13.1*(yd_d - yd);
         
         let a = robot.s.theta.cos()*u1 + robot.s.theta.sin()*u2;
         // w = -robot.s.theta.sin()*u1 / prev_v + robot.s.theta.cos()*u2 / prev_v;
