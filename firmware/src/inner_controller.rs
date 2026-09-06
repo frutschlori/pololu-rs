@@ -175,11 +175,6 @@ pub async fn wheel_speed_inner_loop(
             omega_r: omega_r_lp,
             stamp: measurement_stamp,
         }).await;
-        robotstate::write_odom(robotstate::OdomPose {
-            v: (robot_cfg.wheel_radius * (omega_r_lp + omega_l_lp)) / 2.0,
-            w: (robot_cfg.wheel_radius * (omega_r_lp - omega_l_lp)) / robot_cfg.wheel_base,
-            stamp: measurement_stamp,
-        }).await;
 
         let n = INNER_LOOP_TICK.fetch_add(1, Ordering::Relaxed);
         if n % 100 == 0 {

@@ -49,7 +49,7 @@ pub static POSE: Mutex<ThreadModeRawMutex, MocapPose> = Mutex::new(MocapPose::DE
 /// EKF-fused pose (encoder-predicted + mocap-corrected)
 pub static EKF_STATE: Mutex<ThreadModeRawMutex, RobotPose> = Mutex::new(RobotPose::DEFAULT);
 
-/// Measured body velocity from wheel encoders.
+/// Measured body velocity from the *raw* wheel encoders (writer: odometry task).
 pub static ODOM_STATE: Mutex<ThreadModeRawMutex, OdomPose> = Mutex::new(OdomPose::DEFAULT);
 
 /// Target unicycle velocity command
@@ -66,6 +66,7 @@ pub static SETPOINT: Mutex<ThreadModeRawMutex, Setpoint> = Mutex::new(Setpoint::
 /// Current encoder readings (measured wheel speeds)
 /// Writer: Inner Loop (after optional low-pass filtering)
 /// Readers: Inner Loop (PI controller), Logger
+/// Not the EKF's input - that predicts on the raw twist in ODOM_STATE.
 pub static ENCODER: Mutex<ThreadModeRawMutex, EncoderReading> = Mutex::new(EncoderReading::DEFAULT);
 
 /// Current motor duty cycles
@@ -190,7 +191,7 @@ impl RobotPose {
 }
 impl Default for RobotPose { fn default() -> Self { Self::DEFAULT } }
 
-/// Wheel-derived body velocity used for EKF prediction.
+/// Wheel-derived body velocity used for EKF prediction (raw, unfiltered).
 #[derive(Debug, Copy, Clone)]
 pub struct OdomPose {
     pub v: f32,     // m/s
